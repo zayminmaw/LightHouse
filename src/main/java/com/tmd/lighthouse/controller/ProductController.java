@@ -4,6 +4,9 @@ import com.tmd.lighthouse.entity.Product;
 import com.tmd.lighthouse.entity.response.*;
 import com.tmd.lighthouse.repository.ProductRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.autoconfigure.data.web.SpringDataWebProperties;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -37,7 +40,7 @@ public class ProductController {
         response.setNewProduct(request);
         return ResponseEntity.ok(response);
     }
-    @PostMapping("/update")
+    @PutMapping("/update")
     public ResponseEntity<?> update(@RequestBody Product request){
         Optional<Product> productOptional = productRepository.findById(request.getId());
         if(productOptional.isEmpty()) return new ResponseEntity<>("No Such ID!", HttpStatus.UNPROCESSABLE_ENTITY);
@@ -58,7 +61,7 @@ public class ProductController {
         response.setUpdatedProduct(request);
         return ResponseEntity.ok(response);
     }
-    @PostMapping("/delete")
+    @DeleteMapping("/delete")
     public ResponseEntity<?> delete(@RequestParam("id") long id){
         Optional<Product> productOptional = productRepository.findById(id);
         if (productOptional.isEmpty()) return new ResponseEntity<>("No Such ID!",HttpStatus.UNPROCESSABLE_ENTITY);
@@ -69,6 +72,16 @@ public class ProductController {
         response.setMessage("Deleted ID : "+id);
         response.setDeletedProduct(product);
         return ResponseEntity.ok(response);
+    }
+    @GetMapping("/withPagination")
+    public ResponseEntity<?> readWithPagination(@RequestParam("offset") Integer offset,@RequestParam("limit") Integer limit){
+        Pageable page = PageRequest.of(offset,limit,Sort.by("id"));
+        return ResponseEntity.ok(productRepository.findAll(page));
+    }
+    @GetMapping("/search")
+    public ResponseEntity<?> search(@RequestParam("q") String name){
+        List<Product> resultList = productRepository.findAllByName(name);
+        return ResponseEntity.ok(resultList);
     }
     @GetMapping("")
     public ResponseEntity<?> read(){

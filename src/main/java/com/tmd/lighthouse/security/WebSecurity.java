@@ -1,5 +1,7 @@
 package com.tmd.lighthouse.security;
 
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
@@ -13,9 +15,16 @@ import java.util.Collections;
 @EnableWebSecurity
 public class WebSecurity extends WebSecurityConfigurerAdapter {
 
+    @Autowired
+    private JwtTokenProvider jwtTokenProvider;
+
     @Override
     protected void configure(HttpSecurity http) throws Exception {
-        http.csrf().disable().authorizeRequests().antMatchers("/**").permitAll();
+        http.csrf().disable().authorizeRequests().antMatchers(HttpMethod.POST,"/api/buyer/signup").permitAll()
+                .antMatchers(HttpMethod.POST,"/api/buyer/login").permitAll()
+                .antMatchers(HttpMethod.POST,"/api/seller/signup").permitAll()
+                .antMatchers(HttpMethod.POST,"/api/seller/login").permitAll()
+                .anyRequest().authenticated().and().apply(new JwtConfigurer(jwtTokenProvider));
         http.cors().configurationSource(new CorsConfigurationSource() {
             @Override
             public CorsConfiguration getCorsConfiguration(HttpServletRequest request) {

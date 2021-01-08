@@ -10,6 +10,9 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.User;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -23,7 +26,9 @@ public class ProductController {
     private ProductRepository productRepository;
 
     @PostMapping("/news")
-    public ResponseEntity<?> creates(@RequestBody List<Product> request){
+    public ResponseEntity<?> creates(@RequestBody List<Product> request, @AuthenticationPrincipal UserDetails userDetails){
+        String authorities = userDetails.getAuthorities().iterator().next().toString();
+        if(!authorities.equals("SELLER")) return new ResponseEntity<>("You are not seller!",HttpStatus.FORBIDDEN);
         productRepository.saveAll(request);
         ProductsCreateResponse response = new ProductsCreateResponse();
         response.setMessage("Everything Inserted!");
@@ -32,7 +37,9 @@ public class ProductController {
         return ResponseEntity.ok(response);
     }
     @PostMapping("/new")
-    public ResponseEntity<?> create(@RequestBody Product request){
+    public ResponseEntity<?> create(@RequestBody Product request, @AuthenticationPrincipal UserDetails userDetails){
+        String authorities = userDetails.getAuthorities().iterator().next().toString();
+        if(!authorities.equals("SELLER")) return new ResponseEntity<>("You are not seller!",HttpStatus.FORBIDDEN);
         productRepository.save(request);
         ProductCreateResponse response = new ProductCreateResponse();
         response.setMessage("Product Inserted");
@@ -41,7 +48,9 @@ public class ProductController {
         return ResponseEntity.ok(response);
     }
     @PutMapping("/update")
-    public ResponseEntity<?> update(@RequestBody Product request){
+    public ResponseEntity<?> update(@RequestBody Product request,@AuthenticationPrincipal UserDetails userDetails){
+        String authorities = userDetails.getAuthorities().iterator().next().toString();
+        if(!authorities.equals("SELLER")) return new ResponseEntity<>("You are not seller!",HttpStatus.FORBIDDEN);
         Optional<Product> productOptional = productRepository.findById(request.getId());
         if(productOptional.isEmpty()) return new ResponseEntity<>("No Such ID!", HttpStatus.UNPROCESSABLE_ENTITY);
         Product product = productOptional.get();
@@ -62,7 +71,9 @@ public class ProductController {
         return ResponseEntity.ok(response);
     }
     @DeleteMapping("/delete")
-    public ResponseEntity<?> delete(@RequestParam("id") long id){
+    public ResponseEntity<?> delete(@RequestParam("id") long id,@AuthenticationPrincipal UserDetails userDetails){
+        String authorities = userDetails.getAuthorities().iterator().next().toString();
+        if(!authorities.equals("SELLER")) return new ResponseEntity<>("You are not seller!",HttpStatus.FORBIDDEN);
         Optional<Product> productOptional = productRepository.findById(id);
         if (productOptional.isEmpty()) return new ResponseEntity<>("No Such ID!",HttpStatus.UNPROCESSABLE_ENTITY);
         Product product = productOptional.get();

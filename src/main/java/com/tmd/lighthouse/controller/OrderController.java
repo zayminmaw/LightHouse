@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.sql.Timestamp;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Optional;
 
 @RestController
@@ -37,59 +38,141 @@ public class OrderController {
     @Autowired
     private OrderItemRepository orderItemRepository;
 
-    @PostMapping("")
-    public ResponseEntity<?> order(@RequestBody OrderCreateRequest request, @AuthenticationPrincipal UserDetails userDetails){
+    @PostMapping("/getCart")
+    public ResponseEntity<?> getCart(@AuthenticationPrincipal UserDetails userDetails){
         UserEntity user = userRespository.findByEmail(userDetails.getUsername());
         if (user == null) return new ResponseEntity<>("User doesn't exist!", HttpStatus.FORBIDDEN);
         Buyer buyer = buyerRepository.findByUserId(user.getId());
         if (buyer == null) return new ResponseEntity<>("You are not buyer!", HttpStatus.UNAUTHORIZED);
-        Order order = new Order();
-        order.setAddress(request.getAddress());
-        order.setPhoneNo(request.getPhoneNo());
-        order.setBuyer(buyer);
-        order.setOrderDate(new Timestamp(System.currentTimeMillis()));
-        order.setOrderStatus("RECEIVED");
-        order.setTotal(0);
-        orderRepository.save(order);
-        Double total = 0.0;
-        Product product;
-        for (OrderItemRequest i : request.getProduct()){
-            Optional<Product> productOptional = productRepository.findById(i.getId());
-            if(productOptional.isEmpty()){
-                orderRepository.delete(order);
-                return new ResponseEntity<>("Product does not exist!",HttpStatus.NOT_FOUND);
-            }
-            product = productOptional.get();
-            double subTotal = product.getPrice() * i.getQuantity();
-            total += subTotal;
-            OrderItem orderItem = new OrderItem();
-            orderItem.setOrder(order);
-            orderItem.setProduct(product);
-            orderItem.setQuantity(i.getQuantity());
-            orderItem.setSubTotal(subTotal);
-            orderItemRepository.save(orderItem);
+        Optional<Order> orderOptional = orderRepository.findByOrderStatusAndBuyerId("CART",buyer.getId());
+        if(orderOptional.isEmpty()){
+            Order order = new Order();
+            order.setBuyer(buyer);
+            order.setOrderStatus("CART");
+            order = orderRepository.save(order);
+            return ResponseEntity.ok(orderItemRepository.findAllProductAndQuantityAndSubTotalByOrderId(order.getId()));
         }
-        order.setTotal(total);
-        orderRepository.save(order);
-        return ResponseEntity.ok("Order Successful!");
+        Order order = orderOptional.get();
+        return ResponseEntity.ok(orderItemRepository.findAllProductAndQuantityAndSubTotalByOrderId(order.getId()));
     }
-
-    @GetMapping("")
-    public ResponseEntity<?> allOrder(@AuthenticationPrincipal UserDetails userDetails){
-        String authorities = userDetails.getAuthorities().iterator().next().toString();
-        if(!authorities.equals("SELLER")) return new ResponseEntity<>("You are not seller!",HttpStatus.FORBIDDEN);
-        return ResponseEntity.ok(orderRepository.findAll());
+    @PostMapping("/add")
+    public ResponseEntity<?> addOrderItem(@RequestParam("productId") long productId,@RequestParam("quantity") int quantity,@AuthenticationPrincipal UserDetails userDetails){
+        UserEntity user = userRespository.findByEmail(userDetails.getUsername());
+        if (user == null) return new ResponseEntity<>("User doesn't exist!", HttpStatus.FORBIDDEN);
+        Buyer buyer = buyerRepository.findByUserId(user.getId());
+        if (buyer == null) return new ResponseEntity<>("You are not buyer!", HttpStatus.UNAUTHORIZED);
+        Optional<Order> orderOptional = orderRepository.findByOrderStatusAndBuyerId("CART", buyer.getId());
+        if(orderOptional.isEmpty()) return new ResponseEntity<>("Cart doesn't exist!",HttpStatus.NOT_FOUND);
+        Order order = orderOptional.get();
+        Optional<Product> productOptional = productRepository.findById(productId);
+        if(productOptional.isEmpty()) return new ResponseEntity<>("Product doesn't exist anymore!",HttpStatus.NOT_FOUND);
+        Product product = productOptional.get();
+        Double subTotal = product.getPrice() * quantity;
+        OrderItem orderItem = new OrderItem();
+        orderItem.setSubTotal(subTotal);
+        orderItem.setQuantity(quantity);
+        orderItem.setProduct(product);
+        orderItem.setOrder(order);
+        orderItemRepository.save(orderItem);
+        return ResponseEntity.ok("Added!");
     }
-
-    @DeleteMapping("/delete")
-    public ResponseEntity<?> deleteOrder(@RequestParam("id") long id,@AuthenticationPrincipal UserDetails userDetails){
-        String authorities = userDetails.getAuthorities().iterator().next().toString();
-        if(!authorities.equals("SELLER")) return new ResponseEntity<>("You are not seller!",HttpStatus.FORBIDDEN);
-        Optional<Order> orderOptional = orderRepository.findById(id);
-        if(orderOptional.isEmpty()) return new ResponseEntity<>("This order doesn't exist!",HttpStatus.NOT_FOUND);
+    @PutMapping("/update")
+    public ResponseEntity<?> updateOrderItem(@RequestParam("productId") long productId,@RequestParam("quantity") int quantity,@AuthenticationPrincipal UserDetails userDetails){
+        UserEntity user = userRespository.findByEmail(userDetails.getUsername());
+        if (user == null) return new ResponseEntity<>("User doesn't exist!", HttpStatus.FORBIDDEN);
+        Buyer buyer = buyerRepository.findByUserId(user.getId());
+        if (buyer == null) return new ResponseEntity<>("You are not buyer!", HttpStatus.UNAUTHORIZED);
+        Optional<Order> orderOptional = orderRepository.findByOrderStatusAndBuyerId("CART", buyer.getId());
+        if(orderOptional.isEmpty()) return new ResponseEntity<>("Cart doesn't exist!",HttpStatus.NOT_FOUND);
+        Order order = orderOptional.get();
+        Optional<Product> productOptional = productRepository.findById(productId);
+        if(productOptional.isEmpty()) return new ResponseEntity<>("Product doesn't exist anymore!",HttpStatus.NOT_FOUND);
+        Product product = productOptional.get();
+        Double subTotal = product.getPrice() * quantity;
+        OrderItem orderItem =orderItemRepository.findByProductIdAndOrderId(productId,order.getId());
+        orderItem.setSubTotal(subTotal);
+        orderItem.setQuantity(quantity);
+        orderItemRepository.save(orderItem);
+        return ResponseEntity.ok("Updated!");
+    }
+    @DeleteMapping("/remove")
+    public ResponseEntity<?> removeOrderItem(@RequestParam("productId") long productId,@AuthenticationPrincipal UserDetails userDetails){
+        UserEntity user = userRespository.findByEmail(userDetails.getUsername());
+        if (user == null) return new ResponseEntity<>("User doesn't exist!", HttpStatus.FORBIDDEN);
+        Buyer buyer = buyerRepository.findByUserId(user.getId());
+        if (buyer == null) return new ResponseEntity<>("You are not buyer!", HttpStatus.UNAUTHORIZED);
+        Optional<Order> orderOptional = orderRepository.findByOrderStatusAndBuyerId("CART", buyer.getId());
+        if(orderOptional.isEmpty()) return new ResponseEntity<>("Cart doesn't exist!",HttpStatus.NOT_FOUND);
+        Order order = orderOptional.get();
+        orderItemRepository.delete(orderItemRepository.findByProductIdAndOrderId(productId,order.getId()));
+        return ResponseEntity.ok("Removed!");
+    }
+    @DeleteMapping("/removeAll")
+    public ResponseEntity<?> removeAllOrderItem(@AuthenticationPrincipal UserDetails userDetails){
+        UserEntity user = userRespository.findByEmail(userDetails.getUsername());
+        if (user == null) return new ResponseEntity<>("User doesn't exist!", HttpStatus.FORBIDDEN);
+        Buyer buyer = buyerRepository.findByUserId(user.getId());
+        if (buyer == null) return new ResponseEntity<>("You are not buyer!", HttpStatus.UNAUTHORIZED);
+        Optional<Order> orderOptional = orderRepository.findByOrderStatusAndBuyerId("CART", buyer.getId());
+        if(orderOptional.isEmpty()) return new ResponseEntity<>("Cart doesn't exist!",HttpStatus.NOT_FOUND);
         Order order = orderOptional.get();
         orderItemRepository.deleteAll(orderItemRepository.findAllByOrderId(order.getId()));
-        orderRepository.delete(order);
-        return ResponseEntity.ok("Deleted!");
+        return ResponseEntity.ok("Cart Emptied!");
     }
+
+//    @PostMapping("")
+//    public ResponseEntity<?> order(@RequestBody OrderCreateRequest request, @AuthenticationPrincipal UserDetails userDetails){
+//        UserEntity user = userRespository.findByEmail(userDetails.getUsername());
+//        if (user == null) return new ResponseEntity<>("User doesn't exist!", HttpStatus.FORBIDDEN);
+//        Buyer buyer = buyerRepository.findByUserId(user.getId());
+//        if (buyer == null) return new ResponseEntity<>("You are not buyer!", HttpStatus.UNAUTHORIZED);
+//        Order order = new Order();
+//        order.setAddress(request.getAddress());
+//        order.setPhoneNo(request.getPhoneNo());
+//        order.setBuyer(buyer);
+//        order.setOrderDate(new Timestamp(System.currentTimeMillis()));
+//        order.setOrderStatus("RECEIVED");
+//        order.setTotal(0);
+//        orderRepository.save(order);
+//        Double total = 0.0;
+//        Product product;
+//        for (OrderItemRequest i : request.getProduct()){
+//            Optional<Product> productOptional = productRepository.findById(i.getId());
+//            if(productOptional.isEmpty()){
+//                orderRepository.delete(order);
+//                return new ResponseEntity<>("Product does not exist!",HttpStatus.NOT_FOUND);
+//            }
+//            product = productOptional.get();
+//            double subTotal = product.getPrice() * i.getQuantity();
+//            total += subTotal;
+//            OrderItem orderItem = new OrderItem();
+//            orderItem.setOrder(order);
+//            orderItem.setProduct(product);
+//            orderItem.setQuantity(i.getQuantity());
+//            orderItem.setSubTotal(subTotal);
+//            orderItemRepository.save(orderItem);
+//        }
+//        order.setTotal(total);
+//        orderRepository.save(order);
+//        return ResponseEntity.ok("Order Successful!");
+//    }
+//
+//    @GetMapping("")
+//    public ResponseEntity<?> allOrder(@AuthenticationPrincipal UserDetails userDetails){
+//        String authorities = userDetails.getAuthorities().iterator().next().toString();
+//        if(!authorities.equals("SELLER")) return new ResponseEntity<>("You are not seller!",HttpStatus.FORBIDDEN);
+//        return ResponseEntity.ok(orderRepository.findAll());
+//    }
+//
+//    @DeleteMapping("/delete")
+//    public ResponseEntity<?> deleteOrder(@RequestParam("id") long id,@AuthenticationPrincipal UserDetails userDetails){
+//        String authorities = userDetails.getAuthorities().iterator().next().toString();
+//        if(!authorities.equals("SELLER")) return new ResponseEntity<>("You are not seller!",HttpStatus.FORBIDDEN);
+//        Optional<Order> orderOptional = orderRepository.findById(id);
+//        if(orderOptional.isEmpty()) return new ResponseEntity<>("This order doesn't exist!",HttpStatus.NOT_FOUND);
+//        Order order = orderOptional.get();
+//        orderItemRepository.deleteAll(orderItemRepository.findAllByOrderId(order.getId()));
+//        orderRepository.delete(order);
+//        return ResponseEntity.ok("Deleted!");
+//    }
 }

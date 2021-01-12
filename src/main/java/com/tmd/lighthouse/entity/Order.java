@@ -37,7 +37,7 @@ public class Order {
     private double total;
 
     @Fetch(FetchMode.JOIN)
-    @ManyToOne(fetch = FetchType.LAZY,cascade = CascadeType.ALL)
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "buyerId")
     private Buyer buyer;
 

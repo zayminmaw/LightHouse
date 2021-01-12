@@ -21,7 +21,7 @@ public class OrderItem {
     private long id;
 
     @Fetch(FetchMode.JOIN)
-    @ManyToOne(fetch = FetchType.LAZY,cascade = CascadeType.ALL)
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "orderId")
     private Order order;
 
@@ -29,7 +29,7 @@ public class OrderItem {
     private Long orderId;
 
     @Fetch(FetchMode.JOIN)
-    @ManyToOne(fetch = FetchType.LAZY, cascade = CascadeType.ALL)
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "productId")
     private Product product;
 

@@ -8,5 +8,4 @@ import java.util.List;
 public class OrderCreateRequest {
     private String address;
     private String phoneNo;
-    private List<OrderItemRequest> product;
 }

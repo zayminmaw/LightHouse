@@ -88,8 +88,11 @@ public class OrderController {
         Optional<Product> productOptional = productRepository.findById(productId);
         if(productOptional.isEmpty()) return new ResponseEntity<>("Product doesn't exist anymore!",HttpStatus.NOT_FOUND);
         Product product = productOptional.get();
-        Double subTotal = product.getPrice() * quantity;
         OrderItem orderItem =orderItemRepository.findByProductIdAndOrderId(productId,order.getId());
+        if(quantity == 0){
+            orderItemRepository.delete(orderItem);
+        }
+        Double subTotal = product.getPrice() * quantity;
         orderItem.setSubTotal(subTotal);
         orderItem.setQuantity(quantity);
         orderItemRepository.save(orderItem);
@@ -118,6 +121,43 @@ public class OrderController {
         Order order = orderOptional.get();
         orderItemRepository.deleteAll(orderItemRepository.findAllByOrderId(order.getId()));
         return ResponseEntity.ok("Cart Emptied!");
+    }
+    @PutMapping("/confirm")
+    public ResponseEntity<?> confirmOrder(@RequestBody OrderCreateRequest request,@AuthenticationPrincipal UserDetails userDetails){
+        UserEntity user = userRespository.findByEmail(userDetails.getUsername());
+        if (user == null) return new ResponseEntity<>("User doesn't exist!", HttpStatus.FORBIDDEN);
+        Buyer buyer = buyerRepository.findByUserId(user.getId());
+        if (buyer == null) return new ResponseEntity<>("You are not buyer!", HttpStatus.UNAUTHORIZED);
+        Optional<Order> orderOptional = orderRepository.findByOrderStatusAndBuyerId("CART", buyer.getId());
+        if(orderOptional.isEmpty()) return new ResponseEntity<>("Cart doesn't exist!",HttpStatus.NOT_FOUND);
+        Order order = orderOptional.get();
+        Double total = 0.0;
+        for (OrderItem i : orderItemRepository.findAllByOrderId(order.getId())){
+            total += i.getSubTotal();
+        }
+        order.setTotal(total);
+        order.setPhoneNo(request.getPhoneNo());
+        order.setAddress(request.getAddress());
+        order.setOrderStatus("CONFIRM");
+        order.setOrderDate(new Timestamp(System.currentTimeMillis()));
+        orderRepository.save(order);
+        return ResponseEntity.ok("Order Confirm!");
+    }
+    @GetMapping("/all")
+    public ResponseEntity<?> allOrder(@AuthenticationPrincipal UserDetails userDetails){
+        String authorities = userDetails.getAuthorities().iterator().next().toString();
+        if(!authorities.equals("SELLER")) return new ResponseEntity<>("You are not seller!",HttpStatus.FORBIDDEN);
+        return ResponseEntity.ok(orderRepository.findAllByOrderStatusNot("CART"));
+    }
+    @PostMapping("/cancel")
+    public ResponseEntity<?> cancelOrder(@RequestParam("orderId") long orderId,@AuthenticationPrincipal UserDetails userDetails){
+        String authorities = userDetails.getAuthorities().iterator().next().toString();
+        if(!authorities.equals("SELLER")) return new ResponseEntity<>("You are not seller!",HttpStatus.FORBIDDEN);
+        Order order = orderRepository.findByOrderStatusAndId("CONFIRM",orderId);
+        if(order == null) return new ResponseEntity<>("Order doesn't exist!",HttpStatus.NOT_FOUND);
+        order.setOrderStatus("CANCEL");
+        orderRepository.save(order);
+        return ResponseEntity.ok("Order Canceled! ID : "+orderId);
     }
 
 //    @PostMapping("")
@@ -157,12 +197,7 @@ public class OrderController {
 //        return ResponseEntity.ok("Order Successful!");
 //    }
 //
-//    @GetMapping("")
-//    public ResponseEntity<?> allOrder(@AuthenticationPrincipal UserDetails userDetails){
-//        String authorities = userDetails.getAuthorities().iterator().next().toString();
-//        if(!authorities.equals("SELLER")) return new ResponseEntity<>("You are not seller!",HttpStatus.FORBIDDEN);
-//        return ResponseEntity.ok(orderRepository.findAll());
-//    }
+
 //
 //    @DeleteMapping("/delete")
 //    public ResponseEntity<?> deleteOrder(@RequestParam("id") long id,@AuthenticationPrincipal UserDetails userDetails){

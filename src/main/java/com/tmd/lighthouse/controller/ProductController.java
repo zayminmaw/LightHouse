@@ -48,9 +48,11 @@ public class ProductController {
         return ResponseEntity.ok(response);
     }
     @PutMapping("/update")
+
     public ResponseEntity<?> update(@RequestBody Product request,@AuthenticationPrincipal UserDetails userDetails){
         String authorities = userDetails.getAuthorities().iterator().next().toString();
         if(!authorities.equals("SELLER")) return new ResponseEntity<>("You are not seller!",HttpStatus.FORBIDDEN);
+
         Optional<Product> productOptional = productRepository.findById(request.getId());
         if(productOptional.isEmpty()) return new ResponseEntity<>("No Such ID!", HttpStatus.UNPROCESSABLE_ENTITY);
         Product product = productOptional.get();
@@ -71,9 +73,11 @@ public class ProductController {
         return ResponseEntity.ok(response);
     }
     @DeleteMapping("/delete")
+
     public ResponseEntity<?> delete(@RequestParam("id") long id,@AuthenticationPrincipal UserDetails userDetails){
         String authorities = userDetails.getAuthorities().iterator().next().toString();
         if(!authorities.equals("SELLER")) return new ResponseEntity<>("You are not seller!",HttpStatus.FORBIDDEN);
+
         Optional<Product> productOptional = productRepository.findById(id);
         if (productOptional.isEmpty()) return new ResponseEntity<>("No Such ID!",HttpStatus.UNPROCESSABLE_ENTITY);
         Product product = productOptional.get();

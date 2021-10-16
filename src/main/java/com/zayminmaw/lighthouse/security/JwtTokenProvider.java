@@ -6,7 +6,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.stereotype.Component;
 
 import javax.annotation.PostConstruct;
@@ -18,7 +17,7 @@ import java.util.Date;
 public class JwtTokenProvider {
 
     @Autowired
-    private UserDetailsService userDetailsService;
+    private UserDetailServiceImpl userDetailServiceImpl;
 
     @Value("${security.jwt.token.expire-length:3600000}")
     private long validityInMillisecond = 3600000;
@@ -49,7 +48,7 @@ public class JwtTokenProvider {
     }
 
     public Authentication getAuthentication(String token){
-        UserDetails userDetails = this.userDetailsService.loadUserByUsername(getEmail(token));
+        UserDetails userDetails = this.userDetailServiceImpl.loadUserByUsername(getEmail(token));
         return new UsernamePasswordAuthenticationToken(userDetails,"",userDetails.getAuthorities());
     }
 
@@ -61,7 +60,7 @@ public class JwtTokenProvider {
             }
             return true;
         }catch (JwtException | IllegalArgumentException e){
-            throw new InvalidJwtAuthenticationException("Expire or invalid JWT token");
+            return false;
         }
     }
 
